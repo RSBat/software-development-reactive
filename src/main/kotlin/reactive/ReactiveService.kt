@@ -48,7 +48,7 @@ class ReactiveService {
         return pool.preparedQuery("insert into users(currency) values ($1) returning id")
             .rxExecute(Tuple.of("eur")).map { rowSet ->
                 val resultRow = rowSet.iterator().next()
-                resultRow.get(Integer::class.java, "id").toString()
+                resultRow.getInteger("id").toString()
             }.flatMapObservable { id ->
                 response.writeString(Observable.just(id))
             }
@@ -66,7 +66,7 @@ class ReactiveService {
         return pool.preparedQuery("insert into items(name, price) values ($1, $2) returning id")
             .rxExecute(Tuple.of("test", 1)).map { rowSet ->
                 val resultRow = rowSet.iterator().next()
-                resultRow.get(Integer::class.java, "id").toString()
+                resultRow.getInteger("id").toString()
             }.flatMapObservable { id ->
                 response.writeString(Observable.just(id))
             }
@@ -86,8 +86,7 @@ class ReactiveService {
                 if (rowSet.size() == 0) {
                     throw NoUserException()
                 }
-                val currency = rowSet.iterator().next()
-                    .get(String::class.java, "currency")
+                val currency = rowSet.iterator().next().getString("currency")
                 EXCHANGE_RATES[currency] ?: throw UnsupportedCurrencyException(currency)
             }.flatMap { exchangeRate ->
                 pool.preparedQuery("select name, price from items").rxExecute().map { rowSet ->
