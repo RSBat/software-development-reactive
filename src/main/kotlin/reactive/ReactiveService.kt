@@ -9,7 +9,9 @@ import io.reactivex.netty.protocol.http.server.HttpServerResponse
 import io.vertx.pgclient.PgConnectOptions
 import io.vertx.rxjava.pgclient.PgPool
 import io.vertx.rxjava.sqlclient.Tuple
+import io.vertx.sqlclient.data.Numeric
 import rx.Observable
+import java.lang.NumberFormatException
 import java.math.BigDecimal
 import kotlin.RuntimeException
 
@@ -63,8 +65,26 @@ class ReactiveService {
             return response
         }
 
+        val name = request.queryParameters["name"]?.firstOrNull()
+        if (name == null) {
+            response.status = HttpResponseStatus.BAD_REQUEST
+            return response.writeString(Observable.just("Parameter 'name' must be present"))
+        }
+
+        val price = request.queryParameters["price"]?.firstOrNull()?.let {
+            try {
+                Numeric.parse(it)
+            } catch (e: NumberFormatException) {
+                null
+            }
+        }
+        if (price == null) {
+            response.status = HttpResponseStatus.BAD_REQUEST
+            return response.writeString(Observable.just("Parameter 'price' must be present and be a valid decimal"))
+        }
+
         return pool.preparedQuery("insert into items(name, price) values ($1, $2) returning id")
-            .rxExecute(Tuple.of("test", 1)).map { rowSet ->
+            .rxExecute(Tuple.of(name, price)).map { rowSet ->
                 val resultRow = rowSet.iterator().next()
                 resultRow.getInteger("id").toString()
             }.flatMapObservable { id ->
@@ -82,7 +102,6 @@ class ReactiveService {
         }
 
         val userId = request.queryParameters["userId"]?.firstOrNull()?.toIntOrNull()
-
         if (userId == null) {
             response.status = HttpResponseStatus.BAD_REQUEST
             return response.writeString(Observable.just("Parameter 'userId' must be present and be an integer"))
