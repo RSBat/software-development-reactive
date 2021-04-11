@@ -10,6 +10,10 @@ import io.vertx.pgclient.PgConnectOptions
 import io.vertx.rxjava.pgclient.PgPool
 import io.vertx.rxjava.sqlclient.Tuple
 import rx.Observable
+import rx.Observer
+import rx.Single
+import rx.exceptions.Exceptions
+import java.lang.RuntimeException
 
 class ReactiveService {
     private val server: HttpServer<ByteBuf, ByteBuf>
@@ -26,6 +30,7 @@ class ReactiveService {
     ): Observable<Void> {
         return when (request.decodedPath) {
             "/user" -> processUser(request, response)
+            "/item" -> processItem(request, response)
             else -> unknownPathFallback(request, response)
         }
     }
@@ -41,6 +46,23 @@ class ReactiveService {
             val resultRow = rowSet.iterator().next()
             resultRow.get(Integer::class.java, "id").toString()
         }
+        return response.writeString(insertedId.toObservable())
+    }
+
+    private fun processItem(
+        request: HttpServerRequest<ByteBuf>,
+        response: HttpServerResponse<ByteBuf>
+    ): Observable<Void> {
+        if (request.httpMethod != HttpMethod.PUT) {
+            response.status = HttpResponseStatus.METHOD_NOT_ALLOWED
+            return response
+        }
+
+        val insertedId = pool.preparedQuery("insert into items(name, price) values ($1, $2) returning id")
+            .rxExecute(Tuple.of("test", 1)).map { rowSet ->
+                val resultRow = rowSet.iterator().next()
+                resultRow.get(Integer::class.java, "id").toString()
+            }
         return response.writeString(insertedId.toObservable())
     }
 
