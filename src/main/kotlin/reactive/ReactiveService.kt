@@ -15,8 +15,6 @@ import java.lang.NumberFormatException
 import java.math.BigDecimal
 import kotlin.RuntimeException
 
-data class Item(val name: String, val price: BigDecimal)
-
 class ReactiveService {
     private val server: HttpServer<ByteBuf, ByteBuf>
     private val pool = PgPool.pool(CONNECTION_OPTIONS)
@@ -122,11 +120,10 @@ class ReactiveService {
                 EXCHANGE_RATES[currency] ?: throw UnsupportedCurrencyException(currency)
             }.flatMap { exchangeRate ->
                 pool.preparedQuery("select name, price from items").rxExecute().map { rowSet ->
-                    rowSet.map {
-                        Item(it.getString("name"),
-                            exchangeRate * it.getNumeric("price").bigDecimalValue())
-                    }.joinToString("\n") {
-                        "${it.name}: ${it.price}"
+                    rowSet.joinToString("\n") {
+                        val name = it.getString("name")
+                        val price = exchangeRate * it.getNumeric("price").bigDecimalValue()
+                        "$name: $price"
                     }
                 }
             }.flatMapObservable { id ->
