@@ -35,18 +35,22 @@ class ReactiveService {
         }
     }
 
-    private fun processUser(request: HttpServerRequest<ByteBuf>, response: HttpServerResponse<ByteBuf>): Observable<Void> {
+    private fun processUser(
+        request: HttpServerRequest<ByteBuf>,
+        response: HttpServerResponse<ByteBuf>
+    ): Observable<Void> {
         if (request.httpMethod != HttpMethod.PUT) {
             response.status = HttpResponseStatus.METHOD_NOT_ALLOWED
             return response
         }
 
-        val insertedId = pool.preparedQuery("insert into users(currency) values ($1) returning id")
+        return pool.preparedQuery("insert into users(currency) values ($1) returning id")
             .rxExecute(Tuple.of("eur")).map { rowSet ->
-            val resultRow = rowSet.iterator().next()
-            resultRow.get(Integer::class.java, "id").toString()
-        }
-        return response.writeString(insertedId.toObservable())
+                val resultRow = rowSet.iterator().next()
+                resultRow.get(Integer::class.java, "id").toString()
+            }.flatMapObservable { id ->
+                response.writeString(Observable.just(id))
+            }
     }
 
     private fun processItem(
@@ -58,12 +62,13 @@ class ReactiveService {
             return response
         }
 
-        val insertedId = pool.preparedQuery("insert into items(name, price) values ($1, $2) returning id")
+        return pool.preparedQuery("insert into items(name, price) values ($1, $2) returning id")
             .rxExecute(Tuple.of("test", 1)).map { rowSet ->
                 val resultRow = rowSet.iterator().next()
                 resultRow.get(Integer::class.java, "id").toString()
+            }.flatMapObservable { id ->
+                response.writeString(Observable.just(id))
             }
-        return response.writeString(insertedId.toObservable())
     }
 
     private fun unknownPathFallback(
