@@ -47,8 +47,14 @@ class ReactiveService {
             return response
         }
 
+        val currency = request.queryParameters["currency"]?.firstOrNull()
+        if (!EXCHANGE_RATES.containsKey(currency)) {
+            response.status = HttpResponseStatus.BAD_REQUEST
+            return response.writeString(Observable.just("Parameter 'currency' must be one of ${EXCHANGE_RATES.keys}"))
+        }
+
         return pool.preparedQuery("insert into users(currency) values ($1) returning id")
-            .rxExecute(Tuple.of("eur")).map { rowSet ->
+            .rxExecute(Tuple.of(currency)).map { rowSet ->
                 val resultRow = rowSet.iterator().next()
                 resultRow.getInteger("id").toString()
             }.flatMapObservable { id ->
