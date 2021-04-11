@@ -81,8 +81,15 @@ class ReactiveService {
             return response
         }
 
+        val userId = request.queryParameters["userId"]?.firstOrNull()?.toIntOrNull()
+
+        if (userId == null) {
+            response.status = HttpResponseStatus.BAD_REQUEST
+            return response.writeString(Observable.just("Parameter 'userId' must be present and be an integer"))
+        }
+
         return pool.preparedQuery("select currency from users where id = $1")
-            .rxExecute(Tuple.of(1)).map { rowSet ->
+            .rxExecute(Tuple.of(userId)).map { rowSet ->
                 if (rowSet.size() == 0) {
                     throw NoUserException()
                 }
